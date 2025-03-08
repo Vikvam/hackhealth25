@@ -10,19 +10,16 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
-import javafx.scene.shape.HLineTo;
 import javafx.stage.Stage;
 import qupath.ext.biop.cellpose.Cellpose2D;
 import qupath.ext.biop.cellpose.CellposeBuilder;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.gui.extensions.QuPathExtension;
 import qupath.lib.images.ImageData;
-import qupath.lib.objects.PathAnnotationObject;
 import qupath.lib.objects.PathObject;
 
 import java.awt.image.BufferedImage;
 import java.util.Collection;
-import java.util.List;
 
 import static qupath.lib.scripting.QP.*;
 
@@ -67,7 +64,7 @@ public class GUIExtension implements QuPathExtension {
             // Flow
             Label flowLabel = new Label("Enter Flow Threshold:");
             TextField flowField = new TextField();
-            flowField.setText("0");
+            flowField.setText("Red");
             
             // Resolution
             Label resolutionLabel = new Label("Pixel Resolution (um/px):");
