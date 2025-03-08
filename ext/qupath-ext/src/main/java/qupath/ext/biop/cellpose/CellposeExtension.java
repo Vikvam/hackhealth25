@@ -5,7 +5,7 @@ import org.controlsfx.control.PropertySheet;
 import org.controlsfx.control.action.Action;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import qupath.ext.biop.gui.ButtonTest;
+import qupath.ext.biop.gui.GUIExtension;
 import qupath.fx.prefs.controlsfx.PropertyItemBuilder;
 import qupath.lib.common.Version;
 import qupath.lib.gui.QuPathGUI;
@@ -15,7 +15,6 @@ import qupath.lib.gui.prefs.PathPrefs;
 import qupath.lib.gui.tools.MenuTools;
 
 
-import java.io.File;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 
@@ -30,7 +29,7 @@ public class CellposeExtension implements QuPathExtension, GitHubProject {
 
     private static final Logger logger = LoggerFactory.getLogger(CellposeExtension.class);
     private boolean isInstalled = false;
-    private ButtonTest buttonTest;
+    private GUIExtension buttonTest;
 
     private static final LinkedHashMap<String, String> SCRIPTS = new LinkedHashMap<>() {{
         put("Cellpose training script template", "scripts/Cellpose_training_template.groovy");
@@ -46,8 +45,7 @@ public class CellposeExtension implements QuPathExtension, GitHubProject {
 
     @Override
     public void installExtension(QuPathGUI qupath) {
-        if (isInstalled)
-            return;
+        if (isInstalled) return;
 
         SCRIPTS.entrySet().forEach(entry -> {
             String name = entry.getValue();
@@ -63,15 +61,9 @@ public class CellposeExtension implements QuPathExtension, GitHubProject {
                 logger.error(e.getLocalizedMessage(), e);
             }
         });
-
-        buttonTest = new ButtonTest();
-        buttonTest.installButtons(qupath);
-
-
-
+        
         // Get a copy of the cellpose options
         CellposeSetup options = CellposeSetup.getInstance();
-
 
         // Create the options we need
         StringProperty cellposePath = PathPrefs.createPersistentPreference("cellposePythonPath", "");
@@ -111,7 +103,10 @@ public class CellposeExtension implements QuPathExtension, GitHubProject {
 
         // Add Permanent Preferences and Populate Preferences
         QuPathGUI.getInstance().getPreferencePane().getPropertySheet().getItems().addAll(cellposePathItem, omniposePathItem, condaPathItem);
-
+        
+        // Install GUIExtension
+        GUIExtension guiExtension = new GUIExtension();
+        guiExtension.installExtension(qupath);
     }
 
     @Override
