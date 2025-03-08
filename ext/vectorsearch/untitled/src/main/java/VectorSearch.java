@@ -98,4 +98,30 @@ public class VectorSearch {
         pstmt.close();
         connection.close();
     }
+
+    public void  dropTable() {
+        try {
+            // Create sql query from the embedding
+            String sql = "TRUNCATE TABLE Sample.Vectors";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.executeUpdate();
+            pstmt.close();
+        } catch (Exception ex) {
+            System.out.println("caught exception: "
+                    + ex.getClass().getName() + ": " + ex.getMessage());
+        }
+    }
+
+    public void createTable() {
+        try {
+            // Create sql query from the embedding
+            String sql = "CREATE TABLE Sample.Vectors (vec1 VECTOR(DOUBLE,2))";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.executeUpdate();
+            pstmt.close();
+        } catch (Exception ex) {
+            System.out.println("caught exception: "
+                    + ex.getClass().getName() + ": " + ex.getMessage());
+        }
+    }
 }
