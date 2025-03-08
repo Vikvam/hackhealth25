@@ -7,6 +7,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.VBox;
+import javafx.scene.shape.HLineTo;
 import javafx.stage.Stage;
 import qupath.ext.biop.cellpose.Cellpose2D;
 import qupath.ext.biop.cellpose.CellposeBuilder;
@@ -41,26 +42,33 @@ public class GUIExtension implements QuPathExtension {
     }
     
     void segmentationMenu(QuPathGUI qugui) {
-        // TODO: add GUI parameters for setting Cellpose Extension Params
-        
         Platform.runLater(() -> {
             Stage stage = new Stage();
             stage.setTitle("Cellpose GUI");
-
-            // Model
-            Label modelLabel = new Label("Enter Model Name:");
-            TextField modelField = new TextField();
-            modelField.setText("cyto3");
             
             // Diameter
             Label diameterLabel = new Label("Enter Cell Diameter [px] (use 0 for automatic inference):");
             TextField diameterField = new TextField();
             diameterField.setText("30");
-
+            
+            // Model
+            Label modelLabel = new Label("Enter Model Name:");
+            TextField modelField = new TextField();
+            modelField.setText("cyto3");
+            
+            // Channel
+            Label channelLabel = new Label("Enter Channel Name:");
+            TextField channelField = new TextField();
+            channelField.setText("0");
+            
+            // Flow
+            Label flowLabel = new Label("Enter Flow Threshold:");
+            TextField flowField = new TextField();
+            flowField.setText("0");
+            
             // Resolution
             Label resolutionLabel = new Label("Pixel Resolution (um/px):");
             TextField resolutionField = new TextField();
-            
             // Initialize resolution field with QuPath's current image resolution
             ImageData imageData = qugui.getImageData();
             if (imageData != null) {
@@ -68,6 +76,17 @@ public class GUIExtension implements QuPathExtension {
                 double resolution = imageData.getServer().getPixelCalibration().getAveragedPixelSizeMicrons();
                 resolutionField.setText(String.valueOf(resolution));
             }
+            
+            TitledPane titledPane = new TitledPane();
+            titledPane.setText("Advanced Options");
+            VBox tiledBox = new VBox();
+            tiledBox.getChildren().addAll(
+                modelLabel, modelField,
+                channelLabel, channelField,
+                flowLabel, flowField,
+                resolutionLabel, resolutionField
+            );
+            titledPane.setContent(tiledBox);
             
             // Button
             Button button = new Button("Run Computation");
@@ -77,11 +96,10 @@ public class GUIExtension implements QuPathExtension {
             progressIndicator.setVisible(false);
             
             // Layout
-            VBox layout = new VBox(10);
+            VBox layout = new VBox(15);
             layout.getChildren().addAll(
-                    modelLabel, modelField, 
-                    resolutionLabel, resolutionField, 
                     diameterLabel, diameterField,
+                    titledPane,
                     button,
                     progressIndicator
             );
@@ -92,15 +110,16 @@ public class GUIExtension implements QuPathExtension {
             Scene scene = new Scene(layout, 300, 150);
 
             button.setOnAction(event -> {
-                String modelName = modelField.getText();
+                double flow = Double.parseDouble(resolutionField.getText());
                 double resolution = Double.parseDouble(resolutionField.getText());
                 double diameter = diameterField.getText().isEmpty() ? 0 : Double.parseDouble(diameterField.getText());
 
                 // Create CellposeBuilder with GUI parameters
-                CellposeBuilder cellposeBuilder = Cellpose2D.builder(modelName)
+                CellposeBuilder cellposeBuilder = Cellpose2D.builder(modelField.getText())
                         .pixelSize(resolution)
                         .diameter(diameter)
-                        .channels(0, 0)                     // Assuming grayscale for nuclei detection
+                        .channels(channelField.getText())                         // Assuming grayscale for nuclei detection
+                        .flowThreshold(flow)
                         .classify("Ki67 Nuclei")
                         .measureIntensity()
                         .createAnnotations();
@@ -139,7 +158,6 @@ public class GUIExtension implements QuPathExtension {
     
     void proliferationMenu(QuPathGUI qugui) {
         // TODO: add GUI parameters for setting Cellpose Extension Params
-        
         Platform.runLater(() -> {
             Stage stage = new Stage();
             stage.setTitle("Proliferation");
@@ -177,10 +195,57 @@ public class GUIExtension implements QuPathExtension {
         });
     }
     
+    void resultsMenu(QuPathGUI qugui) {
+        Platform.runLater(() -> {
+            Stage stage = new Stage();
+            stage.setTitle("Evaluation");
+            
+            Collection<PathObject> selection = getSelectedObjects();
+            
+            if (selection.isEmpty()) {
+                System.out.println("No annotations selected!");
+            }
+            
+            // Layout
+            VBox layout = new VBox(10);
+            layout.setAlignment(Pos.CENTER);
+            layout.setPadding(new Insets(10));
+            
+            VBox details = new VBox(10);
+            details.setAlignment(Pos.CENTER);
+            details.setPadding(new Insets(10));
+            
+            // Iterate through each annotation
+            double positive = 0;
+            double total = 0;
+            for (PathObject annotation : selection) {
+                double proliferation = annotation.getMeasurementList().get("Proliferation Index [%]");
+                double cells = annotation.getMeasurementList().get("#Cells");
+                String name = annotation.getName();
+                positive += proliferation * cells;
+                total += cells;
+                details.getChildren().add(new Label((name.isBlank() ? name : "Unnamed") + ": " + cells + " cells; proliferation " + proliferation));
+            }
+            
+            layout.getChildren().addAll(
+                    details,
+                    new Label("Total:\n " + total + " cells; proliferation " + positive / total)
+            );
+
+            // Set up the scene
+            Scene scene = new Scene(layout, 300, 150);
+            
+            // Show the stage
+            stage.setScene(scene);
+            stage.show();
+        });
+    }
+    
     @Override
     public void installExtension(QuPathGUI qugui) {
-        addButtonToToolbar(qugui, "segmentatio", "Segmentatio", () -> segmentationMenu(qugui));
+        addButtonToToolbar(qugui, "segmentation", "Segmentation", () -> segmentationMenu(qugui));
         addButtonToToolbar(qugui, "proliferation", "Proliferation", () -> proliferationMenu(qugui));
+        addButtonToToolbar(qugui, "results", "Results", () -> resultsMenu(qugui));
     }
 
     @Override
@@ -249,7 +314,9 @@ public class GUIExtension implements QuPathExtension {
             selection.getMeasurementList().put("#(Proliferation = 0)", negative);
             selection.getMeasurementList().put("#(Proliferation = 1)", positive1);
             selection.getMeasurementList().put("#(Proliferation = 2)", positive2);
-            selection.getMeasurementList().put("Proliferation Index [%]", (double) (positive1 + positive2) / (negative + positive1 + positive2));
+            int total = negative + positive1 + positive2;
+            selection.getMeasurementList().put("#Cells", total);
+            selection.getMeasurementList().put("Proliferation Index [%]", (double) (positive1 + positive2) / total);
     
             // Update the hierarchy to apply changes
             fireHierarchyUpdate();
