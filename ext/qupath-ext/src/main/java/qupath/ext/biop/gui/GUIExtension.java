@@ -13,17 +13,17 @@ import qupath.ext.biop.cellpose.CellposeBuilder;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.gui.extensions.QuPathExtension;
 import qupath.lib.images.ImageData;
+import qupath.lib.objects.PathAnnotationObject;
 import qupath.lib.objects.PathObject;
 
 import java.awt.image.BufferedImage;
 import java.util.Collection;
+import java.util.List;
 
-import static qupath.lib.scripting.QP.getSelectedObjects;
+import static qupath.lib.scripting.QP.*;
 
 public class GUIExtension implements QuPathExtension {
-    private static final String btnId = "customCellposeButton";
-    
-    void addButtonToToolbar(QuPathGUI qugui) {
+    void addButtonToToolbar(QuPathGUI qugui, String btnId, String label, Runnable handler) {
         ToolBar toolBar = qugui.getToolBar();
         toolBar.getItems().removeIf(item -> item.getId() != null && item.getId().equals(btnId));
 
@@ -31,16 +31,16 @@ public class GUIExtension implements QuPathExtension {
         separator.setId(btnId);
         toolBar.getItems().add(separator);
         
-        Button testButton = new Button(btnId);
+        Button testButton = new Button(label);
         testButton.setId(btnId);
         toolBar.getItems().add(testButton);
         testButton.setOnAction(e -> {
             System.out.println("Button clicked");
-            openMenu(qugui);
+            handler.run();
         });
     }
     
-    void openMenu(QuPathGUI qugui) {
+    void segmentationMenu(QuPathGUI qugui) {
         // TODO: add GUI parameters for setting Cellpose Extension Params
         
         Platform.runLater(() -> {
@@ -137,9 +137,50 @@ public class GUIExtension implements QuPathExtension {
         });
     }
     
+    void proliferationMenu(QuPathGUI qugui) {
+        // TODO: add GUI parameters for setting Cellpose Extension Params
+        
+        Platform.runLater(() -> {
+            Stage stage = new Stage();
+            stage.setTitle("Proliferation");
+            
+            // TODO: Proliferation 0 / Negative threshold
+            
+            // Button
+            Button button = new Button("Run Computation");
+            
+            // Progress
+            ProgressIndicator progressIndicator = new ProgressIndicator();
+            progressIndicator.setVisible(false);
+            
+            // Layout
+            VBox layout = new VBox(10);
+            layout.getChildren().addAll(
+                    button,
+                    progressIndicator
+            );
+            layout.setAlignment(Pos.CENTER);
+            layout.setPadding(new Insets(10));
+
+            // Set up the scene
+            Scene scene = new Scene(layout, 300, 150);
+
+            button.setOnAction(event -> {
+                ColorAnnotations colorAnnotations = new ColorAnnotations(.3, .25, .45);
+                // Call the method to color annotations
+                colorAnnotations.colorAnnotations();
+            });
+            
+            // Show the stage
+            stage.setScene(scene);
+            stage.show();
+        });
+    }
+    
     @Override
     public void installExtension(QuPathGUI qugui) {
-        addButtonToToolbar(qugui);
+        addButtonToToolbar(qugui, "segmentatio", "Segmentatio", () -> segmentationMenu(qugui));
+        addButtonToToolbar(qugui, "proliferation", "Proliferation", () -> proliferationMenu(qugui));
     }
 
     @Override
@@ -150,5 +191,56 @@ public class GUIExtension implements QuPathExtension {
     @Override
     public String getDescription() {
         return "TODO";
+    }
+    
+    public class ColorAnnotations {
+        private double highestNegativeDAB;
+        private double meanNegativeDAB;
+        private double positive1DAB;
+        
+        public ColorAnnotations(double highestNegativeDAB, double meanNegativeDAB, double positive1DAB) {
+            this.highestNegativeDAB = highestNegativeDAB;
+            this.meanNegativeDAB = meanNegativeDAB;
+            this.positive1DAB = positive1DAB;
+        }        
+        
+        public void colorAnnotations() {
+            // Get all annotations in the current image
+            Collection<PathObject> annotations = getAnnotationObjects();
+    
+            // Check if there are any annotations
+            if (annotations.isEmpty()) {
+                System.out.println("No annotations found!");
+                return;
+            }
+    
+            // Iterate through each annotation
+            for (PathObject annotation : annotations) {
+                // Get the internal value (assuming it's stored as a measurement)
+                double DAB_max = annotation.getMeasurementList().get("DAB: Max");
+                double DAB_mean = annotation.getMeasurementList().get("DAB: Mean");
+                
+                // Define color based on the value
+                int color;
+                if (DAB_max < highestNegativeDAB || DAB_mean < meanNegativeDAB) {
+                    color = getColorRGB(0, 255, 0); // Green for low values
+                    annotation.getMeasurementList().put("Proliferation", 0);
+                } else if (DAB_max < positive1DAB) {
+                    color = getColorRGB(255, 255, 0); // Yellow for medium values
+                    annotation.getMeasurementList().put("Proliferation", 0);
+                } else {
+                    color = getColorRGB(255, 0, 0); // Red for high values
+                    annotation.getMeasurementList().put("Proliferation", 1);
+                }
+                
+                // Set the annotation's color
+                annotation.setColorRGB(color);
+            }
+    
+            // Update the hierarchy to apply changes
+            fireHierarchyUpdate();
+    
+            System.out.println("Colors assigned to annotations!");
+        }
     }
 }
