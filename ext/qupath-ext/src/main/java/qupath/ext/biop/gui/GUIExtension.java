@@ -194,9 +194,9 @@ public class GUIExtension implements QuPathExtension {
     }
     
     public class ColorAnnotations {
-        private double highestNegativeDAB;
-        private double meanNegativeDAB;
-        private double positive1DAB;
+        private final double highestNegativeDAB;
+        private final double meanNegativeDAB;
+        private final double positive1DAB;
         
         int negative;
         int positive1;
@@ -249,6 +249,7 @@ public class GUIExtension implements QuPathExtension {
             selection.getMeasurementList().put("#(Proliferation = 0)", negative);
             selection.getMeasurementList().put("#(Proliferation = 1)", positive1);
             selection.getMeasurementList().put("#(Proliferation = 2)", positive2);
+            selection.getMeasurementList().put("Proliferation Index [%]", (double) (positive1 + positive2) / (negative + positive1 + positive2));
     
             // Update the hierarchy to apply changes
             fireHierarchyUpdate();
