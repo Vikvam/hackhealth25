@@ -53,9 +53,9 @@ public class GUIExtension implements QuPathExtension {
             modelField.setText("cyto3");
             
             // Diameter
-            Label diameterLabel = new Label("Enter Cell Diameter (px):");
+            Label diameterLabel = new Label("Enter Cell Diameter [px] (use 0 for automatic inference):");
             TextField diameterField = new TextField();
-            diameterField.setText("0");
+            diameterField.setText("30");
 
             // Resolution
             Label resolutionLabel = new Label("Pixel Resolution (um/px):");
@@ -72,13 +72,18 @@ public class GUIExtension implements QuPathExtension {
             // Button
             Button button = new Button("Run Computation");
             
+            // Progress
+            ProgressIndicator progressIndicator = new ProgressIndicator();
+            progressIndicator.setVisible(false);
+            
             // Layout
             VBox layout = new VBox(10);
             layout.getChildren().addAll(
                     modelLabel, modelField, 
                     resolutionLabel, resolutionField, 
                     diameterLabel, diameterField,
-                    button
+                    button,
+                    progressIndicator
             );
             layout.setAlignment(Pos.CENTER);
             layout.setPadding(new Insets(10));
@@ -96,8 +101,6 @@ public class GUIExtension implements QuPathExtension {
                         .pixelSize(resolution)
                         .diameter(diameter)
                         .channels(0, 0)                     // Assuming grayscale for nuclei detection
-                        //.cellprobThreshold(0.0)
-                        //.flowThreshold(0.4)
                         .classify("Ki67 Nuclei")
                         .measureIntensity()
                         .createAnnotations();
@@ -107,13 +110,25 @@ public class GUIExtension implements QuPathExtension {
                 ImageData<BufferedImage> imageDataForDetection = qugui.getImageData();
 
                 Collection<PathObject> pathObjects = getSelectedObjects();
-
                 if (pathObjects == null || pathObjects.isEmpty()) {
                     System.out.println("Please select a parent object!");
                     return;
                 }
 
-                cellpose.detectObjects(imageDataForDetection, pathObjects);
+                progressIndicator.setVisible(true);
+                button.setDisable(true);
+                button.setVisible(false);
+                Thread thread = new Thread(() -> {
+                    cellpose.detectObjects(imageDataForDetection, pathObjects);
+                    System.out.println("Cellpose detection script done");
+        
+                    // Update UI on the JavaFX thread
+                    Platform.runLater(() -> {
+                        button.setDisable(false); // Enable the button again
+                        stage.close(); // Close the popup window
+                    });
+                });
+                thread.start();
             });
             
             // Show the stage
