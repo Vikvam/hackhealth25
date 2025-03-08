@@ -202,11 +202,18 @@ public class GUIExtension implements QuPathExtension {
         });
     }
     
+    void distributionMenu(QuPathGUI qugui) {
+        Platform.runLater(() -> {
+            
+        });
+    }
+    
     @Override
     public void installExtension(QuPathGUI qugui) {
         addButtonToToolbar(qugui, "segmentation", "Segmentation", () -> segmentationMenu(qugui));
         addButtonToToolbar(qugui, "proliferation", "Proliferation", () -> proliferationMenu(qugui));
         addButtonToToolbar(qugui, "results", "Results", () -> resultsMenu(qugui));
+        addButtonToToolbar(qugui, "distribution", "Distribution", () -> distributionMenu(qugui));
     }
 
     @Override
