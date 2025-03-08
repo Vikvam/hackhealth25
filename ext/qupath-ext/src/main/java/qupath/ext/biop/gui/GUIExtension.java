@@ -198,44 +198,57 @@ public class GUIExtension implements QuPathExtension {
         private double meanNegativeDAB;
         private double positive1DAB;
         
+        int negative;
+        int positive1;
+        int positive2;
+        
         public ColorAnnotations(double highestNegativeDAB, double meanNegativeDAB, double positive1DAB) {
             this.highestNegativeDAB = highestNegativeDAB;
             this.meanNegativeDAB = meanNegativeDAB;
             this.positive1DAB = positive1DAB;
+            negative = 0;
+            positive1 = 0;
+            positive2 = 0;
         }        
         
         public void colorAnnotations() {
             // Get all annotations in the current image
-            Collection<PathObject> annotations = getAnnotationObjects();
+            PathObject selection = getSelectedObject();
     
             // Check if there are any annotations
-            if (annotations.isEmpty()) {
-                System.out.println("No annotations found!");
+            if (selection == null) {
+                System.out.println("No annotations selected!");
+                // TODO: should be a warning
                 return;
             }
     
             // Iterate through each annotation
-            for (PathObject annotation : annotations) {
+            for (PathObject annotation : selection.getChildObjects()) {
                 // Get the internal value (assuming it's stored as a measurement)
                 double DAB_max = annotation.getMeasurementList().get("DAB: Max");
                 double DAB_mean = annotation.getMeasurementList().get("DAB: Mean");
-                
                 // Define color based on the value
                 int color;
                 if (DAB_max < highestNegativeDAB || DAB_mean < meanNegativeDAB) {
                     color = getColorRGB(0, 255, 0); // Green for low values
                     annotation.getMeasurementList().put("Proliferation", 0);
+                    negative++;
                 } else if (DAB_max < positive1DAB) {
                     color = getColorRGB(255, 255, 0); // Yellow for medium values
                     annotation.getMeasurementList().put("Proliferation", 0);
+                    positive1++;
                 } else {
                     color = getColorRGB(255, 0, 0); // Red for high values
                     annotation.getMeasurementList().put("Proliferation", 1);
+                    positive2++;
                 }
-                
                 // Set the annotation's color
                 annotation.setColorRGB(color);
             }
+            
+            selection.getMeasurementList().put("#(Proliferation = 0)", negative);
+            selection.getMeasurementList().put("#(Proliferation = 1)", positive1);
+            selection.getMeasurementList().put("#(Proliferation = 2)", positive2);
     
             // Update the hierarchy to apply changes
             fireHierarchyUpdate();
