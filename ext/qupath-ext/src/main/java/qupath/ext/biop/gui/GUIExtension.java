@@ -1,11 +1,14 @@
 package qupath.ext.biop.gui;
 
 import javafx.application.Platform;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
 import javafx.scene.shape.HLineTo;
 import javafx.stage.Stage;
@@ -197,47 +200,8 @@ public class GUIExtension implements QuPathExtension {
     
     void resultsMenu(QuPathGUI qugui) {
         Platform.runLater(() -> {
-            Stage stage = new Stage();
-            stage.setTitle("Evaluation");
-            
             Collection<PathObject> selection = getSelectedObjects();
-            
-            if (selection.isEmpty()) {
-                System.out.println("No annotations selected!");
-            }
-            
-            // Layout
-            VBox layout = new VBox(10);
-            layout.setAlignment(Pos.CENTER);
-            layout.setPadding(new Insets(10));
-            
-            VBox details = new VBox(10);
-            details.setAlignment(Pos.CENTER);
-            details.setPadding(new Insets(10));
-            
-            // Iterate through each annotation
-            double positive = 0;
-            double total = 0;
-            for (PathObject annotation : selection) {
-                double proliferation = annotation.getMeasurementList().get("Proliferation Index [%]");
-                double cells = annotation.getMeasurementList().get("#Cells");
-                String name = annotation.getName();
-                positive += proliferation * cells;
-                total += cells;
-                details.getChildren().add(new Label((name.isBlank() ? name : "Unnamed") + ": " + cells + " cells; proliferation " + proliferation));
-            }
-            
-            layout.getChildren().addAll(
-                    details,
-                    new Label("Total:\n " + total + " cells; proliferation " + positive / total)
-            );
-
-            // Set up the scene
-            Scene scene = new Scene(layout, 300, 150);
-            
-            // Show the stage
-            stage.setScene(scene);
-            stage.show();
+            AnnotationTable.displayTable(selection);
         });
     }
     
@@ -266,6 +230,7 @@ public class GUIExtension implements QuPathExtension {
         int negative;
         int positive1;
         int positive2;
+        int positive3;
         
         public ColorAnnotations(double highestNegativeDAB, double meanNegativeDAB, double positive1DAB) {
             this.highestNegativeDAB = highestNegativeDAB;
@@ -274,6 +239,7 @@ public class GUIExtension implements QuPathExtension {
             negative = 0;
             positive1 = 0;
             positive2 = 0;
+            positive3 = 0;
         }        
         
         public void colorAnnotations() {
@@ -307,6 +273,7 @@ public class GUIExtension implements QuPathExtension {
                     annotation.getMeasurementList().put("Proliferation", 1);
                     positive2++;
                 }
+                // TODO: Add Proliferation3
                 // Set the annotation's color
                 annotation.setColorRGB(color);
             }
@@ -314,9 +281,11 @@ public class GUIExtension implements QuPathExtension {
             selection.getMeasurementList().put("#(Proliferation = 0)", negative);
             selection.getMeasurementList().put("#(Proliferation = 1)", positive1);
             selection.getMeasurementList().put("#(Proliferation = 2)", positive2);
-            int total = negative + positive1 + positive2;
+            selection.getMeasurementList().put("#(Proliferation = 3)", positive3);
+            int positive = positive1 + positive2 + positive3;
+            double total = negative + positive;
             selection.getMeasurementList().put("#Cells", total);
-            selection.getMeasurementList().put("Proliferation Index [%]", (double) (positive1 + positive2) / total);
+            selection.getMeasurementList().put("Proliferation Index [%]", positive / total);
     
             // Update the hierarchy to apply changes
             fireHierarchyUpdate();
@@ -324,4 +293,125 @@ public class GUIExtension implements QuPathExtension {
             System.out.println("Colors assigned to annotations!");
         }
     }
+    
+    public class AnnotationTable {
+    public static class AnnotationData {
+        private String name;
+        private double cells;
+        private double proliferation0;
+        private double proliferation1;
+        private double proliferation2;
+        private double proliferation3;
+
+        public AnnotationData(String name, double cells, double proliferation0, double proliferation1, double proliferation2, double proliferation3) {
+            this.name = name;
+            this.cells = cells;
+            this.proliferation0 = proliferation0;
+            this.proliferation1 = proliferation1;
+            this.proliferation2 = proliferation2;
+            this.proliferation3 = proliferation3;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public double getCells() {
+            return cells;
+        }
+
+        public double getProliferation0() {
+            return proliferation0;
+        }
+
+        public double getProliferation1() {
+            return proliferation1;
+        }
+
+        public double getProliferation2() {
+            return proliferation2;
+        }
+
+        public double getProliferation3() {
+            return proliferation3;
+        }
+    }
+
+    public static void displayTable(Collection<PathObject> selection) {
+        Platform.runLater(() -> {
+            Stage stage = new Stage();
+            stage.setTitle("Annotation Data");
+
+            // Create a TableView
+            TableView<AnnotationData> tableView = new TableView<>();
+
+            // Create columns
+            TableColumn<AnnotationData, String> nameColumn = new TableColumn<>("Name");
+            nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+
+            TableColumn<AnnotationData, Double> cellsColumn = new TableColumn<>("Cells");
+            cellsColumn.setCellValueFactory(new PropertyValueFactory<>("cells"));
+
+            TableColumn<AnnotationData, Double> proliferation0Column = new TableColumn<>("#(Proliferation = 0)");
+            proliferation0Column.setCellValueFactory(new PropertyValueFactory<>("proliferation0"));
+
+            TableColumn<AnnotationData, Double> proliferation1Column = new TableColumn<>("#(Proliferation = 1)");
+            proliferation1Column.setCellValueFactory(new PropertyValueFactory<>("proliferation1"));
+
+            TableColumn<AnnotationData, Double> proliferation2Column = new TableColumn<>("#(Proliferation = 2)");
+            proliferation2Column.setCellValueFactory(new PropertyValueFactory<>("proliferation2"));
+
+            TableColumn<AnnotationData, Double> proliferation3Column = new TableColumn<>("#(Proliferation = 3)");
+            proliferation3Column.setCellValueFactory(new PropertyValueFactory<>("proliferation3"));
+
+            // Add columns to the TableView
+            tableView.getColumns().addAll(
+                    nameColumn, cellsColumn,
+                    proliferation0Column, proliferation1Column, proliferation2Column, proliferation3Column
+            );
+
+            // Create data
+            ObservableList<AnnotationData> data = FXCollections.observableArrayList();
+            double positive = 0;
+            double total = 0;
+
+            for (PathObject annotation : selection) {
+                try {
+                    double proliferation = annotation.getMeasurementList().get("Proliferation Index [%]");
+                    double proliferation0 = annotation.getMeasurementList().get("#(Proliferation = 0)");
+                    double proliferation1 = annotation.getMeasurementList().get("#(Proliferation = 1)");
+                    double proliferation2 = annotation.getMeasurementList().get("#(Proliferation = 2)");
+                    double proliferation3 = annotation.getMeasurementList().get("#(Proliferation = 3)");
+                    double cells = annotation.getMeasurementList().get("#Cells");
+                    String name = annotation.getName();
+                    positive += proliferation * cells;
+                    total += cells;
+                    data.add(new AnnotationData(name != null ? name : "Unnamed", cells, proliferation0, proliferation1, proliferation2, proliferation3));
+                } catch (Exception e) {
+                    System.out.println("Error processing annotation: " + e.getMessage());
+                }
+            }
+
+            // Add data to the TableView
+            tableView.setItems(data);
+
+            // Add total label
+            Label totalLabel = new Label("Over all regions: " + total + " cells; proliferation " + positive / total);
+
+            // Layout
+            VBox layout = new VBox(10);
+            layout.getChildren().addAll(tableView, totalLabel);
+            layout.setAlignment(Pos.CENTER);
+            layout.setPadding(new Insets(10));
+
+            // Scene
+            Scene scene = new Scene(layout, 400, 300);
+
+            // Stage
+            stage.setScene(scene);
+            stage.show();
+        });
+    }
+}
+
 }
