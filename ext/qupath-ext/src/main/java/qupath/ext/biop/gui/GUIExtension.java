@@ -18,9 +18,11 @@ import qupath.lib.gui.extensions.QuPathExtension;
 import qupath.lib.images.ImageData;
 import qupath.lib.objects.PathObject;
 import qupath.lib.objects.classes.PathClass;
+import qupath.lib.roi.interfaces.ROI;
 
 import java.awt.image.BufferedImage;
 import java.util.Collection;
+import java.util.Random;
 
 import static qupath.lib.gui.scripting.QPEx.getQuPath;
 import static qupath.lib.scripting.QP.*;
@@ -206,7 +208,30 @@ public class GUIExtension implements QuPathExtension {
     
     void distributionMenu(QuPathGUI qugui) {
         Platform.runLater(() -> {
-            
+            Collection<PathObject> selection = getSelectedObjects();
+            for (PathObject annotation : selection) {
+                // Get ROI bounding box
+                ROI roi = annotation.getROI();
+                double x, y, w, h;
+                if (roi != null) {
+                    // Get the bounding box coordinates
+                    x = roi.getBoundsX();
+                    y = roi.getBoundsY();
+                    w = roi.getBoundsWidth();
+                    h = roi.getBoundsHeight();
+                    System.out.println("Bounding Box: x=" + x + ", y=" + y + ", width=" + w + ", height=" + h);
+                } else {
+                    System.out.println("No ROI available for this PathObject");
+                    return;
+                }
+                int n = annotation.getChildObjectsAsArray().length;
+                System.out.println("Hopkins: N=" + n);
+                HopkinsStatistcs statistcs = new HopkinsStatistcs(x, y, w, h);
+                statistcs.fillDB(annotation);
+                double distribution = statistcs.compute(n);
+                System.out.println("Hopkins: coeff=" + distribution);
+                annotation.getMeasurementList().put("Distribution Coefficient", distribution);
+            }
         });
     }
     
@@ -313,123 +338,167 @@ public class GUIExtension implements QuPathExtension {
     }
     
     public class AnnotationTable {
-    public static class AnnotationData {
-        private String name;
-        private double cells;
-        private double proliferation0;
-        private double proliferation1;
-        private double proliferation2;
-        private double proliferation3;
-
-        public AnnotationData(String name, double cells, double proliferation0, double proliferation1, double proliferation2, double proliferation3) {
-            this.name = name;
-            this.cells = cells;
-            this.proliferation0 = proliferation0;
-            this.proliferation1 = proliferation1;
-            this.proliferation2 = proliferation2;
-            this.proliferation3 = proliferation3;
-        }
-
-        public String getName() {
-            return name;
-        }
-
-        public double getCells() {
-            return cells;
-        }
-
-        public double getProliferation0() {
-            return proliferation0;
-        }
-
-        public double getProliferation1() {
-            return proliferation1;
-        }
-
-        public double getProliferation2() {
-            return proliferation2;
-        }
-
-        public double getProliferation3() {
-            return proliferation3;
-        }
-    }
-
-    public static void displayTable(Collection<PathObject> selection) {
-        Platform.runLater(() -> {
-            Stage stage = new Stage();
-            stage.setTitle("Annotation Data");
-
-            // Create a TableView
-            TableView<AnnotationData> tableView = new TableView<>();
-
-            // Create columns
-            TableColumn<AnnotationData, String> nameColumn = new TableColumn<>("Name");
-            nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
-
-            TableColumn<AnnotationData, Double> cellsColumn = new TableColumn<>("Cells");
-            cellsColumn.setCellValueFactory(new PropertyValueFactory<>("cells"));
-
-            TableColumn<AnnotationData, Double> proliferation0Column = new TableColumn<>("#(Proliferation = 0)");
-            proliferation0Column.setCellValueFactory(new PropertyValueFactory<>("proliferation0"));
-
-            TableColumn<AnnotationData, Double> proliferation1Column = new TableColumn<>("#(Proliferation = 1)");
-            proliferation1Column.setCellValueFactory(new PropertyValueFactory<>("proliferation1"));
-
-            TableColumn<AnnotationData, Double> proliferation2Column = new TableColumn<>("#(Proliferation = 2)");
-            proliferation2Column.setCellValueFactory(new PropertyValueFactory<>("proliferation2"));
-
-            TableColumn<AnnotationData, Double> proliferation3Column = new TableColumn<>("#(Proliferation = 3)");
-            proliferation3Column.setCellValueFactory(new PropertyValueFactory<>("proliferation3"));
-
-            // Add columns to the TableView
-            tableView.getColumns().addAll(
-                    nameColumn, cellsColumn,
-                    proliferation0Column, proliferation1Column, proliferation2Column, proliferation3Column
-            );
-
-            // Create data
-            ObservableList<AnnotationData> data = FXCollections.observableArrayList();
-            double positive = 0;
-            double total = 0;
-
-            for (PathObject annotation : selection) {
-                try {
-                    double proliferation = annotation.getMeasurementList().get("Proliferation Index [%]");
-                    double proliferation0 = annotation.getMeasurementList().get("#(Proliferation = 0)");
-                    double proliferation1 = annotation.getMeasurementList().get("#(Proliferation = 1)");
-                    double proliferation2 = annotation.getMeasurementList().get("#(Proliferation = 2)");
-                    double proliferation3 = annotation.getMeasurementList().get("#(Proliferation = 3)");
-                    double cells = annotation.getMeasurementList().get("#Cells");
-                    String name = annotation.getName();
-                    positive += proliferation * cells;
-                    total += cells;
-                    data.add(new AnnotationData(name != null ? name : "Unnamed", cells, proliferation0, proliferation1, proliferation2, proliferation3));
-                } catch (Exception e) {
-                    System.out.println("Error processing annotation: " + e.getMessage());
-                }
+        public static class AnnotationData {
+            private String name;
+            private double cells;
+            private double proliferation;
+            private double proliferation0;
+            private double proliferation1;
+            private double proliferation2;
+            private double proliferation3;
+    
+            public AnnotationData(String name, double cells, double proliferation, double proliferation0, double proliferation1, double proliferation2, double proliferation3) {
+                this.name = name;
+                this.cells = cells;
+                this.proliferation0 = proliferation0;
+                this.proliferation1 = proliferation1;
+                this.proliferation2 = proliferation2;
+                this.proliferation3 = proliferation3;
             }
-
-            // Add data to the TableView
-            tableView.setItems(data);
-
-            // Add total label
-            Label totalLabel = new Label("Over all regions: " + total + " cells; proliferation " + positive / total);
-
-            // Layout
-            VBox layout = new VBox(10);
-            layout.getChildren().addAll(tableView, totalLabel);
-            layout.setAlignment(Pos.CENTER);
-            layout.setPadding(new Insets(10));
-
-            // Scene
-            Scene scene = new Scene(layout, 400, 300);
-
-            // Stage
-            stage.setScene(scene);
-            stage.show();
-        });
+    
+            public String getName() {
+                return name;
+            }
+    
+            public double getCells() {
+                return cells;
+            }
+    
+            public double getProliferation0() {
+                return proliferation0;
+            }
+    
+            public double getProliferation1() {
+                return proliferation1;
+            }
+    
+            public double getProliferation2() {
+                return proliferation2;
+            }
+    
+            public double getProliferation3() {
+                return proliferation3;
+            }
+        }
+    
+        public static void displayTable(Collection<PathObject> selection) {
+            Platform.runLater(() -> {
+                Stage stage = new Stage();
+                stage.setTitle("Annotation Data");
+    
+                // Create a TableView
+                TableView<AnnotationData> tableView = new TableView<>();
+    
+                // Create columns
+                TableColumn<AnnotationData, String> nameColumn = new TableColumn<>("Name");
+                nameColumn.setCellValueFactory(new PropertyValueFactory<>("name"));
+    
+                TableColumn<AnnotationData, Double> cellsColumn = new TableColumn<>("Cells");
+                cellsColumn.setCellValueFactory(new PropertyValueFactory<>("cells"));
+    
+                TableColumn<AnnotationData, Double> proliferationColumn = new TableColumn<>("Proliferation Index [%]");
+                proliferationColumn.setCellValueFactory(new PropertyValueFactory<>("proliferation"));
+    
+                TableColumn<AnnotationData, Double> proliferation0Column = new TableColumn<>("#(Proliferation = 0)");
+                proliferation0Column.setCellValueFactory(new PropertyValueFactory<>("proliferation0"));
+    
+                TableColumn<AnnotationData, Double> proliferation1Column = new TableColumn<>("#(Proliferation = 1)");
+                proliferation1Column.setCellValueFactory(new PropertyValueFactory<>("proliferation1"));
+    
+                TableColumn<AnnotationData, Double> proliferation2Column = new TableColumn<>("#(Proliferation = 2)");
+                proliferation2Column.setCellValueFactory(new PropertyValueFactory<>("proliferation2"));
+    
+                TableColumn<AnnotationData, Double> proliferation3Column = new TableColumn<>("#(Proliferation = 3)");
+                proliferation3Column.setCellValueFactory(new PropertyValueFactory<>("proliferation3"));
+    
+                // Add columns to the TableView
+                tableView.getColumns().addAll(
+                        nameColumn, cellsColumn,
+                        proliferationColumn,
+                        proliferation0Column, proliferation1Column, proliferation2Column, proliferation3Column
+                );
+    
+                // Create data
+                ObservableList<AnnotationData> data = FXCollections.observableArrayList();
+                double positive = 0;
+                double total = 0;
+    
+                for (PathObject annotation : selection) {
+                    try {
+                        double proliferation = annotation.getMeasurementList().get("Proliferation Index [%]");
+                        double proliferation0 = annotation.getMeasurementList().get("#(Proliferation = 0)");
+                        double proliferation1 = annotation.getMeasurementList().get("#(Proliferation = 1)");
+                        double proliferation2 = annotation.getMeasurementList().get("#(Proliferation = 2)");
+                        double proliferation3 = annotation.getMeasurementList().get("#(Proliferation = 3)");
+                        double cells = annotation.getMeasurementList().get("#Cells");
+                        String name = annotation.getName();
+                        positive += proliferation * cells;
+                        total += cells;
+                        data.add(new AnnotationData(name != null ? name : "Unnamed", cells, proliferation, proliferation0, proliferation1, proliferation2, proliferation3));
+                    } catch (Exception e) {
+                        System.out.println("Error processing annotation: " + e.getMessage());
+                    }
+                }
+    
+                // Add data to the TableView
+                tableView.setItems(data);
+    
+                // Add total label
+                Label totalLabel = new Label("Over all regions: " + total + " cells; proliferation " + positive / total);
+    
+                // Layout
+                VBox layout = new VBox(10);
+                layout.getChildren().addAll(tableView, totalLabel);
+                layout.setAlignment(Pos.CENTER);
+                layout.setPadding(new Insets(10));
+    
+                // Scene
+                Scene scene = new Scene(layout, 400, 300);
+    
+                // Stage
+                stage.setScene(scene);
+                stage.show();
+            });
+        }
     }
-}
 
+    public class HopkinsStatistcs {
+        double x, y, w, h;
+        
+        public HopkinsStatistcs(double x, double y, double w, double h) {
+            this.x = x;
+            this.y = y;
+            this.h = h;
+            this.w = w;
+        }
+        
+        public void fillDB(PathObject annotation) {
+            // Add all Proliferation!=0 to DB
+            for (PathObject path : annotation.getChildObjects()) {
+                double proliferation = path.getMeasurementList().get("Proliferation Index [%]");
+                if (!Double.isNaN(proliferation) && proliferation != 0) {
+                    // TODO (me): Add to DB
+                }
+            }  
+        }
+        
+        public double compute(int n) {
+            double randomDist = 0;
+            double positiveDist = 0;
+            Random random = new Random();
+            
+            for (int i = 0; i < n; i++) {
+                double randomX = x + random.nextDouble() * w;
+                double randomY = y + random.nextDouble() * h;
+                // TODO: query NN
+            }
+            
+            for (int i = 0; i < n; i++) {
+                // TODO: query for random point in DB
+                // TODO: query NN
+            }
+            
+            return randomDist / (randomDist + positiveDist);
+        }
+    }
 }
