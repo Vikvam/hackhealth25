@@ -17,10 +17,12 @@ import qupath.lib.gui.QuPathGUI;
 import qupath.lib.gui.extensions.QuPathExtension;
 import qupath.lib.images.ImageData;
 import qupath.lib.objects.PathObject;
+import qupath.lib.objects.classes.PathClass;
 
 import java.awt.image.BufferedImage;
 import java.util.Collection;
 
+import static qupath.lib.gui.scripting.QPEx.getQuPath;
 import static qupath.lib.scripting.QP.*;
 
 public class GUIExtension implements QuPathExtension {
@@ -59,12 +61,12 @@ public class GUIExtension implements QuPathExtension {
             // Channel
             Label channelLabel = new Label("Enter Channel Name:");
             TextField channelField = new TextField();
-            channelField.setText("0");
+            channelField.setText("Red");
             
             // Flow
             Label flowLabel = new Label("Enter Flow Threshold:");
             TextField flowField = new TextField();
-            flowField.setText("Red");
+            flowField.setText("0");
             
             // Resolution
             Label resolutionLabel = new Label("Pixel Resolution (um/px):");
@@ -214,6 +216,15 @@ public class GUIExtension implements QuPathExtension {
         addButtonToToolbar(qugui, "proliferation", "Proliferation", () -> proliferationMenu(qugui));
         addButtonToToolbar(qugui, "results", "Results", () -> resultsMenu(qugui));
         addButtonToToolbar(qugui, "distribution", "Distribution", () -> distributionMenu(qugui));
+
+        ObservableList<PathClass> pathClasses = getQuPath().getAvailablePathClasses();
+        PathClass[] listOfClasses = {
+                getPathClass("Proliferation=0", makeRGB(0, 255, 0)),
+                getPathClass("Proliferation=1", makeRGB(200, 180, 0)),
+                getPathClass("Proliferation=2", makeRGB(230, 100, 0)),
+                getPathClass("Proliferation=3", makeRGB(255, 0, 0))
+        };
+        pathClasses.setAll(listOfClasses);
     }
 
     @Override
@@ -265,15 +276,18 @@ public class GUIExtension implements QuPathExtension {
                 // Define color based on the value
                 int color;
                 if (DAB_max < highestNegativeDAB || DAB_mean < meanNegativeDAB) {
-                    color = getColorRGB(0, 255, 0); // Green for low values
+                    // color = getColorRGB(0, 255, 0); 
+                    color = PathClass.getInstance("Proliferation=0").getColor();
                     annotation.getMeasurementList().put("Proliferation", 0);
                     negative++;
                 } else if (DAB_max < positive1DAB) {
-                    color = getColorRGB(255, 255, 0); // Yellow for medium values
-                    annotation.getMeasurementList().put("Proliferation", 0);
+                    // color = getColorRGB(255, 0, 0); 
+                    color = PathClass.getInstance("Proliferation=1").getColor();
+                    annotation.getMeasurementList().put("Proliferation", 1);
                     positive1++;
                 } else {
-                    color = getColorRGB(255, 0, 0); // Red for high values
+                    // color = getColorRGB(255, 0, 0); 
+                    color = PathClass.getInstance("Proliferation=3").getColor();
                     annotation.getMeasurementList().put("Proliferation", 1);
                     positive2++;
                 }
