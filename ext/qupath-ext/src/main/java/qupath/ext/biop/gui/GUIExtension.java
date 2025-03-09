@@ -162,7 +162,6 @@ public class GUIExtension implements QuPathExtension {
     }
     
     void proliferationMenu(QuPathGUI qugui) {
-        // TODO: add GUI parameters for setting Cellpose Extension Params
         Platform.runLater(() -> {
             Stage stage = new Stage();
             stage.setTitle("Proliferation");
@@ -225,11 +224,12 @@ public class GUIExtension implements QuPathExtension {
                     System.out.println("No ROI available for this PathObject");
                     return;
                 }
-                int n = annotation.getChildObjectsAsArray().length;
+                int n = (int) Math.ceil(annotation.getChildObjectsAsArray().length / 20.);
+                int m = (int) Math.ceil(annotation.getMeasurementList().get("Proliferation Index [%]") * annotation.getMeasurementList().get("#Cells") / 20.);
                 System.out.println("Hopkins: N=" + n);
                 HopkinsStatistcs statistcs = new HopkinsStatistcs(x, y, w, h);
                 statistcs.fillDB(annotation);
-                double distribution = statistcs.compute(n);
+                double distribution = statistcs.compute(n, m);
                 System.out.println("Hopkins: coeff=" + distribution);
                 annotation.getMeasurementList().put("Distribution Coefficient", distribution);
             }
@@ -508,7 +508,7 @@ public class GUIExtension implements QuPathExtension {
             }  
         }
         
-        public double compute(int n) {
+        public double compute(int n, int m) {
             double randomDist = 0;
             double positiveDist = 0;
             Random random = new Random();
