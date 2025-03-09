@@ -45,6 +45,7 @@ public class VectorSearch {
 
 //            String sql = "INSERT INTO Sample.Vectors (vec1) " +
 //                    "VALUES (embeddings)";
+            
             String sql = "INSERT INTO Sample.Vectors (vec1) VALUES (?)";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, embeddings);
@@ -60,12 +61,39 @@ public class VectorSearch {
             System.out.println("caught exception: " + ex.getClass().getName() + ": " + ex.getMessage());
         }
     }
+    
+    public void initEuclidean() {
+        String sql = """
+                create or replace function l2_distance(v1 varchar, v2 varchar)
+                returns float
+                language python
+                {
+                	import math
+                	def to_list(v):
+                		return list(map(lambda x: float(x), list(v.split(","))))
+                    print(v1, v2)
+                	v1 = to_list(v1)
+                	v2 = to_list(v2)
+                	return math.sqrt(sum([(val1 - val2) ** 2 for val1, val2 in zip(v1, v2)]))
+                }
+        """;
+        try {
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            System.out.println(pstmt);
+            pstmt.executeUpdate();
+            pstmt.close();
+        }  catch (Exception ex) {
+            System.out.println("caught exception: " + ex.getClass().getName() + ": " + ex.getMessage());
+        }
+
+    }
 
     public float nearestNeighbor(String embedding, boolean inDB) {
         float distance = -1;
         try {
             // Create sql query from the embedding
-            String sql = "SELECT TOP 2 VECTOR_COSINE(vec1, TO_VECTOR(?, DOUBLE)) AS distance FROM Sample.Vectors ORDER BY distance DESC";
+                       
+            String sql = "SELECT TOP 2 l2_distance(%external(vec1), ?) AS distance FROM Sample.Vectors ORDER BY distance DESC";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, embedding);
             ResultSet rset = pstmt.executeQuery();

@@ -552,6 +552,7 @@ public class GUIExtension implements QuPathExtension {
         public void fillDB(PathObject annotation) {
             // Add all Proliferation!=0 to DB
             vectorSearch.dropTable();
+            vectorSearch.initEuclidean();
             for (PathObject path : annotation.getChildObjects()) {
                 double proliferation = path.getMeasurementList().get("Proliferation");
                 if (proliferation != 0) {
