@@ -337,8 +337,10 @@ public class GUIExtension implements QuPathExtension {
             // Iterate through each annotation
             for (PathObject annotation : selection.getChildObjects()) {
                 // Get the internal value (assuming it's stored as a measurement)
-                double DAB_max = annotation.getMeasurementList().get("DAB: Max");
-                double DAB_mean = annotation.getMeasurementList().get("DAB: Mean");
+                Double DAB_max = annotation.getMeasurementList().get("DAB: Max");
+                Double DAB_mean = annotation.getMeasurementList().get("DAB: Mean");
+                if (DAB_max.isNaN()) DAB_max = annotation.getMeasurementList().get("Nucleus: DAB OD max");
+                if (DAB_mean.isNaN()) DAB_mean = annotation.getMeasurementList().get("Nucleus: DAB OD mean");
                 double positive1Threshold = (positive2Threshold - 3 * negativeThreshold)/2;
                 // Define color based on the value
                 int color;
