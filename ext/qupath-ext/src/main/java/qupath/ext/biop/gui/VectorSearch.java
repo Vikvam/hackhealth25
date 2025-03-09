@@ -1,9 +1,13 @@
+package qupath.ext.biop.gui;
+
 import com.intersystems.jdbc.IRISDataSource;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class VectorSearch {
     private Connection conn;
@@ -123,5 +127,24 @@ public class VectorSearch {
             System.out.println("caught exception: "
                     + ex.getClass().getName() + ": " + ex.getMessage());
         }
+    }
+
+
+    public List<String> getRandomVectors(int n) {
+        List<String> randomVectors = new ArrayList<>();
+        try {
+            String sql = "SELECT TOP " + n + " * FROM Sample.Vectors ORDER BY %EXACT(ID * $HOROLOG)";
+            PreparedStatement pstmt = conn.prepareStatement(sql);
+            ResultSet rset = pstmt.executeQuery();
+
+            while (rset.next()) {
+                randomVectors.add(rset.getString("vec1"));
+            }
+
+            pstmt.close();
+        } catch (Exception ex) {
+            System.out.println("caught exception: " + ex.getClass().getName() + ": " + ex.getMessage());
+        }
+        return randomVectors;
     }
 }
