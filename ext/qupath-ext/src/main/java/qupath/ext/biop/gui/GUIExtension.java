@@ -1,6 +1,7 @@
 package qupath.ext.biop.gui;
 
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -113,7 +114,7 @@ public class GUIExtension implements QuPathExtension {
             layout.setPadding(new Insets(10));
 
             // Set up the scene
-            Scene scene = new Scene(layout, 300, 150);
+            Scene scene = new Scene(layout, 400, 390);
 
             button.setOnAction(event -> {
                 double flow = Double.parseDouble(resolutionField.getText());
@@ -163,41 +164,77 @@ public class GUIExtension implements QuPathExtension {
     }
 
     void proliferationMenu(QuPathGUI qugui) {
+        // TODO: add GUI parameters for setting Cellpose Extension Params
         Platform.runLater(() -> {
             Stage stage = new Stage();
             stage.setTitle("Proliferation");
-
-            // TODO: Proliferation 0 / Negative threshold
-
-            // Button
-            Button button = new Button("Run Computation");
+            stage.setAlwaysOnTop(true);
 
             // Progress
             ProgressIndicator progressIndicator = new ProgressIndicator();
             progressIndicator.setVisible(false);
 
+            // Sliders
+            Slider slider1 = new Slider(0, 1.5, 0.35);
+            Slider slider2 = new Slider(0, 1, 0.20);
+            Slider slider3 = new Slider(0, 1.5, 0.45);
+
+            // Labels for sliders
+            Label label1 = new Label("Minimum Positive Value: 0.35");
+            Label label2 = new Label("Minimum Positive Mean: 0.20");
+            Label label3 = new Label("Intensity Span: 0.45");
+
+            // Update labels when sliders change
+            slider1.valueProperty().addListener((obs, oldVal, newVal) ->
+                    label1.setText(String.format("Minimum Positive Value: %.2f", newVal.doubleValue())));
+            slider2.valueProperty().addListener((obs, oldVal, newVal) ->
+                    label2.setText(String.format("Minimum Positive Mean: %.2f", newVal.doubleValue())));
+            slider3.valueProperty().addListener((obs, oldVal, newVal) ->
+                    label3.setText(String.format("Intensity Span: %.2f", newVal.doubleValue())));
+
+            // Add listener to run function when any slider changes
+            ChangeListener<Number> sliderChangeListener = (obs, oldVal, newVal) -> {
+                ColorAnnotations colorAnnotations = new ColorAnnotations(
+                        slider1.getValue(),
+                        slider2.getValue(),
+                        slider3.getValue()
+                );
+                colorAnnotations.colorAnnotations();
+            };
+
+            slider1.valueProperty().addListener(sliderChangeListener);
+            slider2.valueProperty().addListener(sliderChangeListener);
+            slider3.valueProperty().addListener(sliderChangeListener);
+
+            // Initial computation
+            sliderChangeListener.changed(null, null, slider1.getValue());
+
             // Layout
             VBox layout = new VBox(10);
             layout.getChildren().addAll(
-                    button,
+                    label1, slider1,
+                    label2, slider2,
+                    label3, slider3,
                     progressIndicator
             );
             layout.setAlignment(Pos.CENTER);
             layout.setPadding(new Insets(10));
 
-            // Set up the scene
-            Scene scene = new Scene(layout, 300, 150);
+            // Force layout size
+            layout.setPrefSize(500, 300);
 
-            button.setOnAction(event -> {
-                ColorAnnotations colorAnnotations = new ColorAnnotations(.3, .25, .45);
-                // Call the method to color annotations
-                colorAnnotations.colorAnnotations();
-            });
+            // Set up the scene
+            Scene scene = new Scene(layout, 500, 300);
+
+            // Set explicit Stage size
+            stage.setWidth(500);
+            stage.setHeight(300);
 
             // Show the stage
             stage.setScene(scene);
             stage.show();
         });
+
     }
 
     void resultsMenu(QuPathGUI qugui) {
@@ -265,19 +302,19 @@ public class GUIExtension implements QuPathExtension {
     }
 
     public class ColorAnnotations {
-        private final double highestNegativeDAB;
-        private final double meanNegativeDAB;
-        private final double positive1DAB;
+        private final double negativeThreshold;
+        private final double meanNegativeThreshold;
+        private final double positive2Threshold;
 
         int negative;
         int positive1;
         int positive2;
         int positive3;
 
-        public ColorAnnotations(double highestNegativeDAB, double meanNegativeDAB, double positive1DAB) {
-            this.highestNegativeDAB = highestNegativeDAB;
-            this.meanNegativeDAB = meanNegativeDAB;
-            this.positive1DAB = positive1DAB;
+        public ColorAnnotations(double negativeThreshold, double meanNegativeThreshold, double positive2Threshold) {
+            this.negativeThreshold = negativeThreshold;
+            this.meanNegativeThreshold = meanNegativeThreshold;
+            this.positive2Threshold = positive2Threshold;
             negative = 0;
             positive1 = 0;
             positive2 = 0;
@@ -300,25 +337,29 @@ public class GUIExtension implements QuPathExtension {
                 // Get the internal value (assuming it's stored as a measurement)
                 double DAB_max = annotation.getMeasurementList().get("DAB: Max");
                 double DAB_mean = annotation.getMeasurementList().get("DAB: Mean");
+                double positive1Threshold = (positive2Threshold - 3 * negativeThreshold)/2;
                 // Define color based on the value
                 int color;
-                if (DAB_max < highestNegativeDAB || DAB_mean < meanNegativeDAB) {
-                    // color = getColorRGB(0, 255, 0);
-                    color = PathClass.getInstance("Proliferation=0").getColor();
+                if (DAB_max < negativeThreshold && DAB_mean < meanNegativeThreshold) {
+                    color = getColorRGB(0, 255, 0); // Green for low values
                     annotation.getMeasurementList().put("Proliferation", 0);
                     negative++;
-                } else if (DAB_max < positive1DAB) {
-                    // color = getColorRGB(255, 0, 0);
-                    color = PathClass.getInstance("Proliferation=1").getColor();
+                }
+                else if (DAB_max < positive1Threshold || DAB_mean < meanNegativeThreshold * 1.5) {
+                    color = getColorRGB(255, 255, 0); // Yellow for mild
                     annotation.getMeasurementList().put("Proliferation", 1);
                     positive1++;
-                } else {
-                    // color = getColorRGB(255, 0, 0);
-                    color = PathClass.getInstance("Proliferation=3").getColor();
+                }
+                else if (DAB_max < positive2Threshold || DAB_mean < meanNegativeThreshold * 1.8){
+                    color = getColorRGB(255, 165, 0); // Yellow for mild
                     annotation.getMeasurementList().put("Proliferation", 1);
                     positive2++;
                 }
-                // TODO: Add Proliferation3
+                else {
+                    color = getColorRGB(255, 0, 0); // Red for high values
+                    annotation.getMeasurementList().put("Proliferation", 1);
+                    positive3++;
+                }
                 // Set the annotation's color
                 annotation.setColorRGB(color);
             }
@@ -327,15 +368,12 @@ public class GUIExtension implements QuPathExtension {
             selection.getMeasurementList().put("#(Proliferation = 1)", positive1);
             selection.getMeasurementList().put("#(Proliferation = 2)", positive2);
             selection.getMeasurementList().put("#(Proliferation = 3)", positive3);
-            int positive = positive1 + positive2 + positive3;
-            double total = negative + positive;
+            int total = negative + positive1 + positive2 + positive3;
             selection.getMeasurementList().put("#Cells", total);
-            selection.getMeasurementList().put("Proliferation Index [%]", positive / total);
+            selection.getMeasurementList().put("Proliferation Index [%]", (double) (positive1 + positive2 + positive3) / total);
 
             // Update the hierarchy to apply changes
             fireHierarchyUpdate();
-
-            System.out.println("Colors assigned to annotations!");
         }
     }
 
