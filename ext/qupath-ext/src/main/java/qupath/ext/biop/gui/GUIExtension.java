@@ -66,7 +66,7 @@ public class GUIExtension implements QuPathExtension {
             // Channel
             Label channelLabel = new Label("Enter Channel Name:");
             TextField channelField = new TextField();
-            channelField.setText("Red");
+            channelField.setText("0");
 
             // Flow
             Label flowLabel = new Label("Enter Flow Threshold:");
@@ -120,12 +120,14 @@ public class GUIExtension implements QuPathExtension {
                 double flow = Double.parseDouble(resolutionField.getText());
                 double resolution = Double.parseDouble(resolutionField.getText());
                 double diameter = diameterField.getText().isEmpty() ? 0 : Double.parseDouble(diameterField.getText());
+                int channel = channelField.getText().isEmpty() ? 0 : Integer.parseInt(channelField.getText());
 
                 // Create CellposeBuilder with GUI parameters
                 CellposeBuilder cellposeBuilder = Cellpose2D.builder(modelField.getText())
                         .pixelSize(resolution)
                         .diameter(diameter)
-                        .channels(channelField.getText())                         // Assuming grayscale for nuclei detection
+                        .channels(channel)
+                        .cellposeChannels(channel,2) //will be run selected channel and then on a green one (detects nuclei)
                         .flowThreshold(flow)
                         .classify("Ki67 Nuclei")
                         .measureIntensity()
@@ -177,7 +179,7 @@ public class GUIExtension implements QuPathExtension {
             // Sliders
             Slider slider1 = new Slider(0, 1.5, 0.35);
             Slider slider2 = new Slider(0, 1, 0.20);
-            Slider slider3 = new Slider(0, 1.5, 0.45);
+            Slider slider3 = new Slider(0, 2, 0.45);
 
             // Labels for sliders
             Label label1 = new Label("Minimum Positive Value: 0.35");
