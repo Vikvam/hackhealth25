@@ -11,6 +11,7 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.util.Callback;
 import qupath.ext.biop.cellpose.Cellpose2D;
 import qupath.ext.biop.cellpose.CellposeBuilder;
 import qupath.lib.gui.QuPathGUI;
@@ -350,6 +351,7 @@ public class GUIExtension implements QuPathExtension {
             public AnnotationData(String name, double cells, double proliferation, double proliferation0, double proliferation1, double proliferation2, double proliferation3) {
                 this.name = name;
                 this.cells = cells;
+                this.proliferation = proliferation;
                 this.proliferation0 = proliferation0;
                 this.proliferation1 = proliferation1;
                 this.proliferation2 = proliferation2;
@@ -362,6 +364,10 @@ public class GUIExtension implements QuPathExtension {
     
             public double getCells() {
                 return cells;
+            }
+    
+            public double getProliferation() {
+                return proliferation;
             }
     
             public double getProliferation0() {
@@ -388,6 +394,21 @@ public class GUIExtension implements QuPathExtension {
     
                 // Create a TableView
                 TableView<AnnotationData> tableView = new TableView<>();
+                tableView.setRowFactory(new Callback<TableView<AnnotationData>, TableRow<AnnotationData>>() {
+                    @Override
+                    public TableRow<AnnotationData> call(TableView<AnnotationData> tableView) {
+                        return new TableRow<AnnotationData>() {
+                            @Override
+                            protected void updateItem(AnnotationData item, boolean empty) {
+                                super.updateItem(item, empty);
+                                if (item != null && item.getName().equals("Over all regions")) {
+                                    setStyle("-fx-background-color: lightblue;");
+                                }
+                            }
+                        };
+                    }
+                });
+
     
                 // Create columns
                 TableColumn<AnnotationData, String> nameColumn = new TableColumn<>("Name");
@@ -420,8 +441,10 @@ public class GUIExtension implements QuPathExtension {
     
                 // Create data
                 ObservableList<AnnotationData> data = FXCollections.observableArrayList();
-                double positive = 0;
-                double total = 0;
+                double proliferation0Total = 0;
+                double proliferation1Total = 0;
+                double proliferation2Total = 0;
+                double proliferation3Total = 0;
     
                 for (PathObject annotation : selection) {
                     try {
@@ -432,23 +455,26 @@ public class GUIExtension implements QuPathExtension {
                         double proliferation3 = annotation.getMeasurementList().get("#(Proliferation = 3)");
                         double cells = annotation.getMeasurementList().get("#Cells");
                         String name = annotation.getName();
-                        positive += proliferation * cells;
-                        total += cells;
+                        proliferation0Total += proliferation0;
+                        proliferation1Total += proliferation1;
+                        proliferation2Total += proliferation2;
+                        proliferation3Total += proliferation3;
                         data.add(new AnnotationData(name != null ? name : "Unnamed", cells, proliferation, proliferation0, proliferation1, proliferation2, proliferation3));
                     } catch (Exception e) {
                         System.out.println("Error processing annotation: " + e.getMessage());
                     }
                 }
-    
+                
+                double positiveTotal = proliferation1Total + proliferation2Total + proliferation3Total;
+                double total = proliferation0Total + positiveTotal;
+                data.add(new AnnotationData("Over all regions", total, positiveTotal / total, proliferation0Total, proliferation1Total, proliferation2Total, proliferation3Total));
+                
                 // Add data to the TableView
                 tableView.setItems(data);
     
-                // Add total label
-                Label totalLabel = new Label("Over all regions: " + total + " cells; proliferation " + positive / total);
-    
                 // Layout
                 VBox layout = new VBox(10);
-                layout.getChildren().addAll(tableView, totalLabel);
+                layout.getChildren().addAll(tableView);
                 layout.setAlignment(Pos.CENTER);
                 layout.setPadding(new Insets(10));
     
