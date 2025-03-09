@@ -16,7 +16,7 @@ public class VectorSearch {
         try {
             // set connection parameters
             IRISDataSource ds = new IRISDataSource();
-            ds.setServerName("127.0.0.1");
+            ds.setServerName("172.16.91.29");
             ds.setPortNumber(1972);
             ds.setDatabaseName("%SYS");
             ds.setUser("demo");
@@ -34,7 +34,7 @@ public class VectorSearch {
         try {
             // set connection parameters
             IRISDataSource ds = new IRISDataSource();
-            ds.setServerName("127.0.0.1");
+            ds.setServerName("172.16.91.29");
             ds.setPortNumber(1972);
             ds.setDatabaseName("%SYS");
             ds.setUser("demo");
@@ -50,7 +50,7 @@ public class VectorSearch {
 
             System.out.println("Inserting embeddings..., sql: " + sql);
 
-            pstmt.setString(0, embeddings);
+            pstmt.setString(1, embeddings);
 //            pstmt.setInt(1, uid);
 
             pstmt.executeUpdate();
@@ -62,24 +62,28 @@ public class VectorSearch {
         }
     }
 
-    public float nearestNeighbor(String embedding) {
+    public float nearestNeighbor(String embedding, boolean inDB) {
         float distance = -1;
         try {
             // Create sql query from the embedding
-            String sql = "SELECT TOP 1 VECTOR_COSINE(vec1, TO_VECTOR(?, DOUBLE)) AS distance FROM Sample.Vectors ORDER BY distance DESC";
+            String sql = "SELECT TOP 2 VECTOR_COSINE(vec1, TO_VECTOR(?, DOUBLE)) AS distance FROM Sample.Vectors ORDER BY distance DESC";
             PreparedStatement pstmt = conn.prepareStatement(sql);
             pstmt.setString(1, embedding);
             ResultSet rset = pstmt.executeQuery();
-
+            
+            if (inDB) {
+                rset.next();
+                System.out.println("Skip: " + inDB);
+            }
             if (rset.next()) {
                 distance = rset.getFloat("distance");
             }
 
             pstmt.close();
         } catch (Exception ex) {
-            System.out.println("caught exception: "
-                    + ex.getClass().getName() + ": " + ex.getMessage());
+            System.out.println("caught exception: " + ex.getClass().getName() + ": " + ex.getMessage());
         }
+        System.out.println("Distance: " + distance);
         return distance;
     }
 

@@ -504,8 +504,9 @@ double positiveTotal = proliferation1Total + proliferation2Total + proliferation
             // Add all Proliferation!=0 to DB
             vectorSearch.dropTable();
             for (PathObject path : annotation.getChildObjects()) {
-                double proliferation = path.getMeasurementList().get("Proliferation Index [%]");
-                if (!Double.isNaN(proliferation) && proliferation != 0) {
+                double proliferation = path.getMeasurementList().get("Proliferation");
+                System.out.println(proliferation + " to DB " + (proliferation != 0));
+                if (proliferation != 0) {
                     vectorSearch.InsertEmbeddings(path.getROI().getCentroidX() + "," + path.getROI().getCentroidY());
                 }
             }
@@ -519,18 +520,18 @@ double positiveTotal = proliferation1Total + proliferation2Total + proliferation
             for (int i = 0; i < n; i++) {
                 double randomX = x + random.nextDouble() * w;
                 double randomY = y + random.nextDouble() * h;
-                // TODO: query NN
-                randomDist += vectorSearch.nearestNeighbor(randomX + "," + randomY);
+                randomDist += vectorSearch.nearestNeighbor(randomX + "," + randomY, false);
             }
 
-            List<String> randPoints = vectorSearch.getRandomVectors(n);
+            List<String> randPoints = vectorSearch.getRandomVectors(m);
+            System.out.println("randPoints: " + randPoints.size());
 
             for (String point : randPoints) {
-                // TODO: query for random point in DB
-                // TODO: query NN
-                positiveDist += vectorSearch.nearestNeighbor(point);
+                positiveDist += vectorSearch.nearestNeighbor(point, true);
             }
 
+            System.out.println("N: " + n + "; M: " + m);
+            System.out.println("Random dist: " + randomDist + "; PositiveDist: " + positiveDist);
             return randomDist / (randomDist + positiveDist);
         }
     }
