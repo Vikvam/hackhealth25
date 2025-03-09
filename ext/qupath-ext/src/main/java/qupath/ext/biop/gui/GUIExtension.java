@@ -348,8 +348,9 @@ public class GUIExtension implements QuPathExtension {
             private double proliferation1;
             private double proliferation2;
             private double proliferation3;
-
-            public AnnotationData(String name, double cells, double proliferation, double proliferation0, double proliferation1, double proliferation2, double proliferation3) {
+            private double distribution;
+            
+            public AnnotationData(String name, double cells, double proliferation, double proliferation0, double proliferation1, double proliferation2, double proliferation3, double distribution) {
                 this.name = name;
                 this.cells = cells;
                 this.proliferation = proliferation;
@@ -357,6 +358,7 @@ public class GUIExtension implements QuPathExtension {
                 this.proliferation1 = proliferation1;
                 this.proliferation2 = proliferation2;
                 this.proliferation3 = proliferation3;
+                this.distribution = distribution;
             }
 
             public String getName() {
@@ -366,7 +368,7 @@ public class GUIExtension implements QuPathExtension {
             public double getCells() {
                 return cells;
             }
-public double getProliferation() {
+            public double getProliferation() {
                 return proliferation;
             }
 
@@ -385,6 +387,10 @@ public double getProliferation() {
             public double getProliferation3() {
                 return proliferation3;
             }
+
+            public double getDistribution() {
+                return distribution;
+            }
         }
 
         public static void displayTable(Collection<PathObject> selection) {
@@ -394,7 +400,7 @@ public double getProliferation() {
 
                 // Create a TableView
                 TableView<AnnotationData> tableView = new TableView<>();
-tableView.setRowFactory(new Callback<TableView<AnnotationData>, TableRow<AnnotationData>>() {
+                tableView.setRowFactory(new Callback<TableView<AnnotationData>, TableRow<AnnotationData>>() {
                     @Override
                     public TableRow<AnnotationData> call(TableView<AnnotationData> tableView) {
                         return new TableRow<AnnotationData>() {
@@ -432,11 +438,15 @@ tableView.setRowFactory(new Callback<TableView<AnnotationData>, TableRow<Annotat
                 TableColumn<AnnotationData, Double> proliferation3Column = new TableColumn<>("#(Proliferation = 3)");
                 proliferation3Column.setCellValueFactory(new PropertyValueFactory<>("proliferation3"));
 
+                TableColumn<AnnotationData, Double> distributionColumn = new TableColumn<>("Distribution Coefficient");
+                distributionColumn.setCellValueFactory(new PropertyValueFactory<>("distribution"));
+
                 // Add columns to the TableView
                 tableView.getColumns().addAll(
                         nameColumn, cellsColumn,
                         proliferationColumn,
-                        proliferation0Column, proliferation1Column, proliferation2Column, proliferation3Column
+                        proliferation0Column, proliferation1Column, proliferation2Column, proliferation3Column,
+                        distributionColumn
                 );
 
                 // Create data
@@ -448,24 +458,25 @@ tableView.setRowFactory(new Callback<TableView<AnnotationData>, TableRow<Annotat
                 for (PathObject annotation : selection) {
                     try {
                         double proliferation = annotation.getMeasurementList().get("Proliferation Index [%]");
-                        double proliferation0 = annotation.getMeasurementList().get("#(Proliferation = 0)");
-                        double proliferation1 = annotation.getMeasurementList().get("#(Proliferation = 1)");
-                        double proliferation2 = annotation.getMeasurementList().get("#(Proliferation = 2)");
-                        double proliferation3 = annotation.getMeasurementList().get("#(Proliferation = 3)");
+                        Double proliferation0 = annotation.getMeasurementList().get("#(Proliferation = 0)");
+                        Double proliferation1 = annotation.getMeasurementList().get("#(Proliferation = 1)");
+                        Double proliferation2 = annotation.getMeasurementList().get("#(Proliferation = 2)");
+                        Double proliferation3 = annotation.getMeasurementList().get("#(Proliferation = 3)");
+                        double distribution = annotation.getMeasurementList().get("Distribution Coefficient");
                         double cells = annotation.getMeasurementList().get("#Cells");
                         String name = annotation.getName();
-                        proliferation0Total += proliferation0;
-                        proliferation1Total += proliferation1;
-                        proliferation2Total += proliferation2;
-                        proliferation3Total += proliferation3;
-                        data.add(new AnnotationData(name != null ? name : "Unnamed", cells, proliferation, proliferation0, proliferation1, proliferation2, proliferation3));
+                        if (!proliferation0.isNaN()) proliferation0Total += proliferation0;
+                        if (!proliferation1.isNaN()) proliferation1Total += proliferation1;
+                        if (!proliferation2.isNaN()) proliferation2Total += proliferation2;
+                        if (!proliferation3.isNaN()) proliferation3Total += proliferation3;
+                        data.add(new AnnotationData(name != null ? name : "Unnamed", cells, proliferation, proliferation0, proliferation1, proliferation2, proliferation3, distribution));
                     } catch (Exception e) {
                         System.out.println("Error processing annotation: " + e.getMessage());
                     }
                 }
-double positiveTotal = proliferation1Total + proliferation2Total + proliferation3Total;
+                double positiveTotal = proliferation1Total + proliferation2Total + proliferation3Total;
                 double total = proliferation0Total + positiveTotal;
-                data.add(new AnnotationData("Over all regions", total, positiveTotal / total, proliferation0Total, proliferation1Total, proliferation2Total, proliferation3Total));
+                data.add(new AnnotationData("Over all regions", total, positiveTotal / total, proliferation0Total, proliferation1Total, proliferation2Total, proliferation3Total, Double.NaN));
 
                 // Add data to the TableView
                 tableView.setItems(data);
@@ -505,7 +516,6 @@ double positiveTotal = proliferation1Total + proliferation2Total + proliferation
             vectorSearch.dropTable();
             for (PathObject path : annotation.getChildObjects()) {
                 double proliferation = path.getMeasurementList().get("Proliferation");
-                System.out.println(proliferation + " to DB " + (proliferation != 0));
                 if (proliferation != 0) {
                     vectorSearch.InsertEmbeddings(path.getROI().getCentroidX() + "," + path.getROI().getCentroidY());
                 }

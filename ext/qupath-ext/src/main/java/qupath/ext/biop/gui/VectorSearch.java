@@ -47,18 +47,17 @@ public class VectorSearch {
 //                    "VALUES (embeddings)";
             String sql = "INSERT INTO Sample.Vectors (vec1) VALUES (?)";
             PreparedStatement pstmt = conn.prepareStatement(sql);
+            pstmt.setString(1, embeddings);
 
             System.out.println("Inserting embeddings..., sql: " + sql);
 
-            pstmt.setString(1, embeddings);
 //            pstmt.setInt(1, uid);
 
             pstmt.executeUpdate();
 
             pstmt.close();
         } catch (Exception ex) {
-            System.out.println("caught exception: "
-                    + ex.getClass().getName() + ": " + ex.getMessage());
+            System.out.println("caught exception: " + ex.getClass().getName() + ": " + ex.getMessage());
         }
     }
 
