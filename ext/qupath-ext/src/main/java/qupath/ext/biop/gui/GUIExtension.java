@@ -527,7 +527,7 @@ public class GUIExtension implements QuPathExtension {
                 layout.setPadding(new Insets(10));
 
                 // Scene
-                Scene scene = new Scene(layout, 400, 300);
+                Scene scene = new Scene(layout, 900, 300);
 
                 // Stage
                 stage.setScene(scene);
